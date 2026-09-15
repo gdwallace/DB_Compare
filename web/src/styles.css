@@ -112,6 +112,11 @@ h1 {
   color: #fff;
 }
 
+button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
 .panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
