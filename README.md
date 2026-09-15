@@ -31,21 +31,32 @@ or:
 python3 scripts/launch.py
 ```
 
-or, on Windows from the repo root:
+or, on Windows from the repo root (a new Command Prompt after installing Node.js):
 
 ```bat
-python scripts\launch.py
+scripts\launch.bat
 ```
 
 That creates `.venv`, installs Python and Node packages, copies `.env.example` to `.env` if needed, then starts the API and UI.
 
-Windows needs **Node.js LTS** (https://nodejs.org) so `npm.cmd` is on PATH. Open a new terminal after installing it. If Node is missing but `web/dist` already exists, the launcher serves the built UI at http://127.0.0.1:8000 instead.
+Windows needs **Node.js LTS** from https://nodejs.org (the official installer, not only the Microsoft Store). Installing Node does not update PATH in windows that were already open, and Python cannot launch a bare `npm` command. `launch.py` / `launch.bat` now:
+
+- look for `C:\Program Files\nodejs` even when PATH is stale
+- skip Microsoft Store `WindowsApps` stubs
+- run npm as `node.exe …\npm-cli.js` (or `cmd.exe /c npm.cmd`) instead of `CreateProcess("npm")`
+
+After installing Node, close every terminal, open a new Command Prompt in the repo, then:
+
+```bat
+where node
+where npm
+npm -v
+scripts\launch.bat
+```
+
+If Node is missing but `web/dist` already exists, the launcher serves the built UI at http://127.0.0.1:8000 instead.
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Fill `APPIAN_PASSWORD` and `APPIAN_STAGE_PASSWORD` in `.env` before comparing live servers.
-
-1. Choose two server names from the dropdowns.
-2. Enter the database name (and schema if not `dbo`).
-3. Click **Compare servers**.
 
 1. Choose two server names from the dropdowns.
 2. Enter the database name (and schema if not `dbo`).
