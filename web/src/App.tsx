@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { compareServers, fetchConfig, inspectServer, loadDemo } from "./api";
-import { csvEscape, diffValues, displayValue } from "./diff";
+import { csvEscape, displayValue } from "./diff";
 import ServerPicker from "./ServerPicker";
 import {
   CompareResponse,
@@ -498,14 +498,11 @@ function PairCell({
   if (status === "left_only") return <code>{left === "∅" ? "—" : left}</code>;
   if (status === "right_only") return <code>{right === "∅" ? "—" : right}</code>;
   if (left === right) return <code>{left}</code>;
-  const tokens = diffValues(left, right);
   return (
     <code>
-      {tokens.map((token, index) => (
-        <span key={`${token.type}-${index}`} className={token.type === "same" ? undefined : token.type}>
-          {token.text}
-        </span>
-      ))}
+      <span className="del">{left}</span>
+      <span className="sep"> → </span>
+      <span className="add">{right}</span>
     </code>
   );
 }
