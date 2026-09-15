@@ -19,17 +19,25 @@ Pick the two servers from dropdowns (SQL Server **names**, not IP addresses).
 
 ## Run locally
 
+From the repo root:
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-cp .env.example .env   # fill APPIAN_PASSWORD and APPIAN_STAGE_PASSWORD
-cd web && npm install && cd ..
-chmod +x scripts/dev.sh
-./scripts/dev.sh
+./scripts/launch.sh
 ```
 
-Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
+or:
+
+```bash
+python3 scripts/launch.py
+```
+
+That creates `.venv`, installs Python and Node packages, copies `.env.example` to `.env` if needed, then starts the API and UI.
+
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Fill `APPIAN_PASSWORD` and `APPIAN_STAGE_PASSWORD` in `.env` before comparing live servers.
+
+1. Choose two server names from the dropdowns.
+2. Enter the database name (and schema if not `dbo`).
+3. Click **Compare servers**.
 
 1. Choose two server names from the dropdowns.
 2. Enter the database name (and schema if not `dbo`).
