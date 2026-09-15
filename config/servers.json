@@ -1,0 +1,12 @@
+{
+  "servers": [
+    {
+      "name": "SQL-PROD-01",
+      "label": "SQL-PROD-01"
+    },
+    {
+      "name": "SQL-UAT-01",
+      "label": "SQL-UAT-01"
+    }
+  ]
+}

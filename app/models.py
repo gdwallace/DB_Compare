@@ -5,8 +5,21 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.query import KEY_COLUMNS, TABLE_NAME, VALUE_COLUMNS
+
 Driver = Literal["mssql", "sqlite"]
 DiffStatus = Literal["identical", "changed", "left_only", "right_only"]
+
+
+class ServerInfo(BaseModel):
+    name: str
+    label: str | None = None
+    database: str | None = None
+    port: int | None = None
+    schema_name: str | None = None
+
+    def display_name(self) -> str:
+        return self.label or self.name
 
 
 class SqlConnection(BaseModel):
@@ -20,15 +33,19 @@ class SqlConnection(BaseModel):
     trusted_connection: bool = False
     encrypt: bool = False
     schema_name: str | None = "dbo"
-    table: str = "TBLINISETTINGS"
+    table: str = TABLE_NAME
 
 
 class CompareRequest(BaseModel):
-    left: SqlConnection
-    right: SqlConnection
-    key_columns: list[str] | None = None
-    value_columns: list[str] | None = None
+    left_server: str | None = None
+    right_server: str | None = None
+    left: SqlConnection | None = None
+    right: SqlConnection | None = None
     include_identical: bool = True
+    database: str | None = None
+    username: str | None = None
+    password: str | None = None
+    schema_name: str | None = None
     max_rows: int = Field(default=50_000, ge=1, le=200_000)
 
 
@@ -47,6 +64,7 @@ class InstanceSnapshot(BaseModel):
     schema_name: str | None = None
     row_count: int
     columns: list[ColumnInfo]
+    server_name: str | None = None
 
 
 class DiffRow(BaseModel):
@@ -74,83 +92,45 @@ class CompareResponse(BaseModel):
     summary: CompareSummary
     rows: list[DiffRow]
     warnings: list[str] = Field(default_factory=list)
+    query: str | None = None
 
 
 class InspectRequest(BaseModel):
-    connection: SqlConnection
+    server: str | None = None
+    connection: SqlConnection | None = None
+    database: str | None = None
+    username: str | None = None
+    password: str | None = None
+    schema_name: str | None = None
     max_preview_rows: int = Field(default=8, ge=0, le=50)
 
 
 class InspectResponse(BaseModel):
     snapshot: InstanceSnapshot
-    suggested_key_columns: list[str]
-    suggested_value_columns: list[str]
+    suggested_key_columns: list[str] = Field(default_factory=lambda: list(KEY_COLUMNS))
+    suggested_value_columns: list[str] = Field(default_factory=lambda: list(VALUE_COLUMNS))
     preview: list[dict[str, Any]]
-
-
-class PublicConnection(BaseModel):
-    label: str
-    driver: Driver
-    host: str | None = None
-    port: int = 1433
-    database: str = ""
-    username: str | None = None
-    trusted_connection: bool = False
-    encrypt: bool = False
-    schema_name: str | None = "dbo"
-    table: str = "TBLINISETTINGS"
-    configured: bool = False
+    query: str | None = None
 
 
 class PublicConfig(BaseModel):
-    left: PublicConnection
-    right: PublicConnection
+    servers: list[ServerInfo]
+    database: str = ""
+    username: str | None = None
+    schema_name: str = "dbo"
+    table: str = TABLE_NAME
+    query: str = (
+        "SELECT SECTION, NAME, INIVALUE, DESCRIPTION, EXPOSED, DATATYPE, DATAFORMAT "
+        "FROM TBLINISETTINGS"
+    )
 
 
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    left_label: str = "SQL Instance A"
-    left_driver: Driver = "mssql"
-    left_host: str = ""
-    left_port: int = 1433
-    left_database: str = ""
-    left_username: str = ""
-    left_password: str = ""
-    left_trusted_connection: bool = False
-    left_schema: str = "dbo"
-    left_table: str = "TBLINISETTINGS"
-
-    right_label: str = "SQL Instance B"
-    right_driver: Driver = "mssql"
-    right_host: str = ""
-    right_port: int = 1433
-    right_database: str = ""
-    right_username: str = ""
-    right_password: str = ""
-    right_trusted_connection: bool = False
-    right_schema: str = "dbo"
-    right_table: str = "TBLINISETTINGS"
-
-    def public_config(self) -> PublicConfig:
-        return PublicConfig(
-            left=self._public("left"),
-            right=self._public("right"),
-        )
-
-    def _public(self, side: Literal["left", "right"]) -> PublicConnection:
-        host = getattr(self, f"{side}_host")
-        database = getattr(self, f"{side}_database")
-        username = getattr(self, f"{side}_username")
-        return PublicConnection(
-            label=getattr(self, f"{side}_label"),
-            driver=getattr(self, f"{side}_driver"),
-            host=host or None,
-            port=getattr(self, f"{side}_port"),
-            database=database,
-            username=username or None,
-            trusted_connection=getattr(self, f"{side}_trusted_connection"),
-            schema_name=getattr(self, f"{side}_schema") or None,
-            table=getattr(self, f"{side}_table"),
-            configured=bool(host and database),
-        )
+    sql_server_names: str = ""
+    sql_database: str = ""
+    sql_username: str = ""
+    sql_password: str = ""
+    sql_port: int = 1433
+    sql_schema: str = "dbo"

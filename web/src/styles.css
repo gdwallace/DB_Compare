@@ -168,6 +168,46 @@ h1 {
   padding: 4px 0;
 }
 
+.panel-head h2 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.lede code,
+.hint code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  background: #fff;
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+
+.shared-creds {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 18px;
+}
+
+.ini-extra {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -420,7 +460,8 @@ tr.right_only {
   .panels,
   .summary,
   .ini-line,
-  .field-grid {
+  .field-grid,
+  .shared-creds {
     grid-template-columns: 1fr;
     display: grid;
   }

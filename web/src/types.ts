@@ -1,18 +1,12 @@
 export type Driver = "mssql" | "sqlite";
 export type DiffStatus = "identical" | "changed" | "left_only" | "right_only";
 
-export type SqlConnection = {
-  label: string;
-  driver: Driver;
-  host?: string | null;
-  port: number;
-  database: string;
-  username?: string | null;
-  password?: string | null;
-  trusted_connection: boolean;
-  encrypt: boolean;
+export type ServerInfo = {
+  name: string;
+  label?: string | null;
+  database?: string | null;
+  port?: number | null;
   schema_name?: string | null;
-  table: string;
 };
 
 export type ColumnInfo = {
@@ -30,6 +24,7 @@ export type InstanceSnapshot = {
   schema_name?: string | null;
   row_count: number;
   columns: ColumnInfo[];
+  server_name?: string | null;
 };
 
 export type DiffRow = {
@@ -57,6 +52,7 @@ export type CompareResponse = {
   summary: CompareSummary;
   rows: DiffRow[];
   warnings: string[];
+  query?: string | null;
 };
 
 export type InspectResponse = {
@@ -64,28 +60,17 @@ export type InspectResponse = {
   suggested_key_columns: string[];
   suggested_value_columns: string[];
   preview: Record<string, string | number | null>[];
+  query?: string | null;
 };
-
-export type PublicConnection = SqlConnection & { configured: boolean };
 
 export type PublicConfig = {
-  left: PublicConnection;
-  right: PublicConnection;
+  servers: ServerInfo[];
+  database: string;
+  username?: string | null;
+  schema_name: string;
+  table: string;
+  query: string;
 };
-
-export const emptyConnection = (label: string): SqlConnection => ({
-  label,
-  driver: "mssql",
-  host: "",
-  port: 1433,
-  database: "",
-  username: "",
-  password: "",
-  trusted_connection: false,
-  encrypt: false,
-  schema_name: "dbo",
-  table: "TBLINISETTINGS",
-});
 
 export const STATUS_LABEL: Record<DiffStatus, string> = {
   identical: "Match",
@@ -93,3 +78,7 @@ export const STATUS_LABEL: Record<DiffStatus, string> = {
   left_only: "Only A",
   right_only: "Only B",
 };
+
+export function serverLabel(server: ServerInfo): string {
+  return server.label || server.name;
+}

@@ -61,6 +61,10 @@ def _norm_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
+def _matches_hint(norm: str, hint: str) -> bool:
+    return norm == hint or norm.startswith(hint) or norm.endswith(hint)
+
+
 def guess_key_and_value_columns(
     columns: Iterable[ColumnInfo | str],
     primary_key: Iterable[str] | None = None,
@@ -92,7 +96,7 @@ def guess_key_and_value_columns(
             continue
         if name in identity_like and len(names) > 2:
             continue
-        if any(hint in norm for hint in KEY_NAME_HINTS):
+        if any(_matches_hint(norm, hint) for hint in KEY_NAME_HINTS):
             key_columns.append(name)
 
     if not key_columns:

@@ -1,14 +1,21 @@
 # DB Compare — TBLINISETTINGS
 
-Visualize `TBLINISETTINGS` across two SQL instances and see what drifted.
+Visualize `TBLINISETTINGS` across two hosted SQL Server instances.
 
-The app reads the table from instance A and instance B, treats INI-style columns (section + key → value) as the join, and shows:
+The same query is run on each selected server:
 
-- **Changed** — same setting, different value
-- **Only A / Only B** — setting exists on one instance
+```sql
+SELECT SECTION, NAME, INIVALUE, DESCRIPTION, EXPOSED, DATATYPE, DATAFORMAT
+FROM TBLINISETTINGS
+```
+
+Rows are joined on `SECTION` + `NAME`. The viewer then shows:
+
+- **Changed** — same setting, different `INIVALUE` / description / flags
+- **Only A / Only B** — setting exists on one server
 - **Match** — identical on both
 
-There is a table view and an INI-style view, plus CSV export of the current filter.
+Pick the two servers from dropdowns (SQL Server **names**, not IP addresses).
 
 ## Run locally
 
@@ -23,21 +30,26 @@ chmod +x scripts/dev.sh
 
 Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-- **Load sample data** compares two bundled SQLite copies of `TBLINISETTINGS` so you can use the UI without live servers.
-- For real instances, fill in host / database / credentials on A and B (SQL authentication), click **Test connection**, then **Compare instances**.
+1. Put your SQL Server names in `config/servers.json` or `SQL_SERVER_NAMES` in `.env`.
+2. Set `SQL_DATABASE` / username / password (or enter them in the form).
+3. Choose two names from the dropdowns and click **Compare servers**.
 
-Optional defaults can live in `.env` (see `.env.example`). Passwords are never returned by the config API.
+**Load sample data** compares bundled SQLite copies so you can use the UI without live servers.
 
-## What it expects
+## Server names
 
-Default table name is `TBLINISETTINGS`. Column detection looks for INI-like names:
+`config/servers.json`:
 
-| Role | Typical columns |
-| --- | --- |
-| Key | `SECTION`, `IDENT` / `ENTRY` / `KEY` |
-| Value | `VALUE` / `ENTRYVALUE` |
+```json
+{
+  "servers": [
+    { "name": "SQL-PROD-01" },
+    { "name": "SQL-UAT-01" }
+  ]
+}
+```
 
-If your names differ, test the connection first — the inspect response includes the guessed key and value columns. Schema defaults to `dbo` on SQL Server.
+Replace those names with the instances you host. Named instances are supported as `HOSTNAME\\INSTANCENAME`. Connections always use the server name, never an IP.
 
 ## Production-style serve
 

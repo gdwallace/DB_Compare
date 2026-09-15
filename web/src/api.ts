@@ -1,9 +1,4 @@
-import type {
-  CompareResponse,
-  InspectResponse,
-  PublicConfig,
-  SqlConnection,
-} from "./types";
+import type { CompareResponse, InspectResponse, PublicConfig } from "./types";
 
 async function parseError(response: Response): Promise<string> {
   try {
@@ -21,28 +16,41 @@ export async function fetchConfig(): Promise<PublicConfig> {
   return response.json();
 }
 
-export async function inspectConnection(connection: SqlConnection): Promise<InspectResponse> {
+export async function inspectServer(
+  server: string,
+  extras: { database?: string; username?: string; password?: string; schema_name?: string },
+): Promise<InspectResponse> {
   const response = await fetch("/api/inspect", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ connection }),
+    body: JSON.stringify({ server, ...extras }),
   });
   if (!response.ok) throw new Error(await parseError(response));
   return response.json();
 }
 
-export async function compareInstances(
-  left: SqlConnection,
-  right: SqlConnection,
-  includeIdentical: boolean,
+export async function compareServers(
+  leftServer: string,
+  rightServer: string,
+  extras: {
+    includeIdentical: boolean;
+    database?: string;
+    username?: string;
+    password?: string;
+    schema_name?: string;
+  },
 ): Promise<CompareResponse> {
   const response = await fetch("/api/compare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      left,
-      right,
-      include_identical: includeIdentical,
+      left_server: leftServer,
+      right_server: rightServer,
+      include_identical: extras.includeIdentical,
+      database: extras.database,
+      username: extras.username,
+      password: extras.password,
+      schema_name: extras.schema_name,
     }),
   });
   if (!response.ok) throw new Error(await parseError(response));

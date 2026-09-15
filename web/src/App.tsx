@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import ConnectionForm from "./ConnectionForm";
-import { compareInstances, fetchConfig, inspectConnection, loadDemo } from "./api";
+import { compareServers, fetchConfig, inspectServer, loadDemo } from "./api";
 import { csvEscape, diffValues, displayValue } from "./diff";
+import ServerPicker from "./ServerPicker";
 import {
   CompareResponse,
   DiffRow,
   DiffStatus,
+  PublicConfig,
   STATUS_LABEL,
-  SqlConnection,
-  emptyConnection,
+  ServerInfo,
 } from "./types";
 
 type Filter = "all" | "differences" | DiffStatus;
@@ -24,8 +24,14 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 export default function App() {
-  const [left, setLeft] = useState<SqlConnection>(emptyConnection("SQL Instance A"));
-  const [right, setRight] = useState<SqlConnection>(emptyConnection("SQL Instance B"));
+  const [config, setConfig] = useState<PublicConfig | null>(null);
+  const [servers, setServers] = useState<ServerInfo[]>([]);
+  const [leftServer, setLeftServer] = useState("");
+  const [rightServer, setRightServer] = useState("");
+  const [database, setDatabase] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [schemaName, setSchemaName] = useState("dbo");
   const [testing, setTesting] = useState<"left" | "right" | null>(null);
   const [leftMsg, setLeftMsg] = useState<string>();
   const [rightMsg, setRightMsg] = useState<string>();
@@ -41,15 +47,28 @@ export default function App() {
 
   useEffect(() => {
     fetchConfig()
-      .then((config) => {
-        setLeft(stripPublic(config.left, "SQL Instance A"));
-        setRight(stripPublic(config.right, "SQL Instance B"));
+      .then((payload) => {
+        setConfig(payload);
+        setServers(payload.servers);
+        setDatabase(payload.database);
+        setUsername(payload.username ?? "");
+        setSchemaName(payload.schema_name || "dbo");
+        if (payload.servers[0]) setLeftServer(payload.servers[0].name);
+        if (payload.servers[1]) setRightServer(payload.servers[1].name);
+        else if (payload.servers[0]) setRightServer(payload.servers[0].name);
       })
-      .catch(() => undefined);
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, []);
 
+  const extras = {
+    database: database || undefined,
+    username: username || undefined,
+    password: password || undefined,
+    schema_name: schemaName || undefined,
+  };
+
   async function testSide(side: "left" | "right") {
-    const connection = side === "left" ? left : right;
+    const server = side === "left" ? leftServer : rightServer;
     setTesting(side);
     setError(undefined);
     if (side === "left") {
@@ -60,8 +79,8 @@ export default function App() {
       setRightMsg(undefined);
     }
     try {
-      const inspected = await inspectConnection(connection);
-      const msg = `${inspected.snapshot.table}: ${inspected.snapshot.row_count} rows · keys ${inspected.suggested_key_columns.join(", ") || "—"}`;
+      const inspected = await inspectServer(server, extras);
+      const msg = `${server}: ${inspected.snapshot.row_count} rows`;
       if (side === "left") setLeftMsg(msg);
       else setRightMsg(msg);
     } catch (err) {
@@ -77,7 +96,10 @@ export default function App() {
     setBusy(true);
     setError(undefined);
     try {
-      const payload = await compareInstances(left, right, true);
+      const payload = await compareServers(leftServer, rightServer, {
+        includeIdentical: true,
+        ...extras,
+      });
       setResult(payload);
       setFilter("differences");
       setSection("all");
@@ -94,22 +116,10 @@ export default function App() {
     try {
       const payload = await loadDemo(true);
       setResult(payload);
-      setLeft({
-        ...emptyConnection(payload.left.label),
-        driver: "sqlite",
-        database: payload.left.database,
-        schema_name: null,
-        table: payload.left.table,
-      });
-      setRight({
-        ...emptyConnection(payload.right.label),
-        driver: "sqlite",
-        database: payload.right.database,
-        schema_name: null,
-        table: payload.right.table,
-      });
-      setLeftMsg(`${payload.left.table}: ${payload.left.row_count} rows`);
-      setRightMsg(`${payload.right.table}: ${payload.right.row_count} rows`);
+      setLeftServer(payload.left.label);
+      setRightServer(payload.right.label);
+      setLeftMsg(`${payload.left.label}: ${payload.left.row_count} rows`);
+      setRightMsg(`${payload.right.label}: ${payload.right.row_count} rows`);
       setLeftErr(undefined);
       setRightErr(undefined);
       setFilter("differences");
@@ -164,20 +174,19 @@ export default function App() {
 
   function exportCsv() {
     if (!result) return;
-    const valueColumns = result.value_columns;
     const headers = [
       "status",
       ...result.key_columns,
-      ...valueColumns.map((column) => `A_${column}`),
-      ...valueColumns.map((column) => `B_${column}`),
+      ...result.value_columns.map((column) => `A_${column}`),
+      ...result.value_columns.map((column) => `B_${column}`),
     ];
     const lines = [headers.join(",")];
     for (const row of visible) {
       const cells = [
         row.status,
         ...result.key_columns.map((column) => displayValue(row.key[column])),
-        ...valueColumns.map((column) => displayValue(row.left?.[column])),
-        ...valueColumns.map((column) => displayValue(row.right?.[column])),
+        ...result.value_columns.map((column) => displayValue(row.left?.[column])),
+        ...result.value_columns.map((column) => displayValue(row.right?.[column])),
       ];
       lines.push(cells.map((cell) => csvEscape(cell)).join(","));
     }
@@ -197,40 +206,70 @@ export default function App() {
           <p className="eyebrow">DB Compare</p>
           <h1>TBLINISETTINGS</h1>
           <p className="lede">
-            Read the INI-style settings table from two SQL instances you host and highlight what
-            drifted: changed values, keys only on A, and keys only on B.
+            Pick two SQL Server names and compare INI settings. The same query is run on both
+            instances: <code>{config?.query ?? "SELECT SECTION, NAME, INIVALUE, DESCRIPTION, EXPOSED, DATATYPE, DATAFORMAT FROM TBLINISETTINGS"}</code>
           </p>
         </div>
         <div className="hero-actions">
           <button type="button" className="ghost" onClick={runDemo} disabled={busy}>
             Load sample data
           </button>
-          <button type="button" className="primary" onClick={runCompare} disabled={busy}>
-            {busy ? "Comparing…" : "Compare instances"}
+          <button type="button" className="primary" onClick={runCompare} disabled={busy || !leftServer || !rightServer}>
+            {busy ? "Comparing…" : "Compare servers"}
           </button>
         </div>
       </header>
 
       <div className="panels">
-        <ConnectionForm
+        <ServerPicker
           side="left"
-          value={left}
-          onChange={setLeft}
+          servers={servers}
+          value={leftServer}
+          onChange={setLeftServer}
           onTest={() => testSide("left")}
           testing={testing === "left"}
           message={leftMsg}
           error={leftErr}
         />
-        <ConnectionForm
+        <ServerPicker
           side="right"
-          value={right}
-          onChange={setRight}
+          servers={servers}
+          value={rightServer}
+          onChange={setRightServer}
           onTest={() => testSide("right")}
           testing={testing === "right"}
           message={rightMsg}
           error={rightErr}
         />
       </div>
+
+      <section className="shared-creds">
+        <label>
+          Database
+          <input value={database} onChange={(event) => setDatabase(event.target.value)} placeholder="Database name" />
+        </label>
+        <label>
+          Username
+          <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" />
+        </label>
+        <label>
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="new-password"
+          />
+        </label>
+        <label>
+          Schema
+          <input value={schemaName} onChange={(event) => setSchemaName(event.target.value)} />
+        </label>
+      </section>
+      <p className="hint">
+        Server names live in <code>config/servers.json</code> or <code>SQL_SERVER_NAMES</code>. Edit
+        those names to match the instances you host.
+      </p>
 
       {error ? <div className="banner error">{error}</div> : null}
       {result?.warnings.map((warning) => (
@@ -307,8 +346,8 @@ export default function App() {
           </div>
 
           <p className="showing">
-            Showing {visible.length} of {result.summary.total} keys · compared on{" "}
-            {result.key_columns.join(" + ")} → {result.value_columns.join(", ")}
+            Showing {visible.length} of {result.summary.total} keys · {result.left.label} vs{" "}
+            {result.right.label}
           </p>
 
           {view === "table" ? (
@@ -321,17 +360,14 @@ export default function App() {
                       <th key={column}>{column}</th>
                     ))}
                     {result.value_columns.map((column) => (
-                      <th key={`a-${column}`}>{result.left.label} · {column}</th>
-                    ))}
-                    {result.value_columns.map((column) => (
-                      <th key={`b-${column}`}>{result.right.label} · {column}</th>
+                      <th key={column}>{column}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {visible.length === 0 ? (
                     <tr>
-                      <td colSpan={3 + result.key_columns.length + result.value_columns.length * 2}>
+                      <td colSpan={1 + result.key_columns.length + result.value_columns.length}>
                         No settings match this filter.
                       </td>
                     </tr>
@@ -347,20 +383,9 @@ export default function App() {
                           </td>
                         ))}
                         {result.value_columns.map((column) => (
-                          <td key={`a-${column}`} className="value-cell">
-                            <ValueCell
+                          <td key={column} className="value-cell">
+                            <PairCell
                               status={row.status}
-                              side="left"
-                              left={displayValue(row.left?.[column])}
-                              right={displayValue(row.right?.[column])}
-                            />
-                          </td>
-                        ))}
-                        {result.value_columns.map((column) => (
-                          <td key={`b-${column}`} className="value-cell">
-                            <ValueCell
-                              status={row.status}
-                              side="right"
                               left={displayValue(row.left?.[column])}
                               right={displayValue(row.right?.[column])}
                             />
@@ -379,23 +404,48 @@ export default function App() {
                   <h2>[{group.name}]</h2>
                   {group.rows.map((row) => {
                     const ident = identColumn ? displayValue(row.key[identColumn]) : "value";
-                    const leftValue = displayValue(row.left?.[result.value_columns[0]]);
-                    const rightValue = displayValue(row.right?.[result.value_columns[0]]);
+                    const leftValue = displayValue(row.left?.["INIVALUE"]);
+                    const rightValue = displayValue(row.right?.["INIVALUE"]);
                     return (
                       <div key={rowKey(row)} className={`ini-line ${row.status}`}>
                         <span className={`status ${row.status}`}>{STATUS_LABEL[row.status]}</span>
-                        <code>
-                          {ident} ={" "}
-                          {row.status === "changed" ? (
-                            <>
-                              <span className="del">{leftValue}</span>
-                              <span className="sep"> → </span>
-                              <span className="add">{rightValue}</span>
-                            </>
-                          ) : (
-                            <span>{row.status === "right_only" ? rightValue : leftValue}</span>
-                          )}
-                        </code>
+                        <div>
+                          <code>
+                            {ident} ={" "}
+                            {row.status === "changed" ? (
+                              <>
+                                <span className="del">{leftValue}</span>
+                                <span className="sep"> → </span>
+                                <span className="add">{rightValue}</span>
+                              </>
+                            ) : (
+                              <span>{row.status === "right_only" ? rightValue : leftValue}</span>
+                            )}
+                          </code>
+                          {result.value_columns
+                            .filter((column) => column !== "INIVALUE")
+                            .map((column) => {
+                              const leftExtra = displayValue(row.left?.[column]);
+                              const rightExtra = displayValue(row.right?.[column]);
+                              if (leftExtra === rightExtra && (leftExtra === "∅" || leftExtra === "—")) {
+                                return null;
+                              }
+                              return (
+                                <div key={column} className="ini-extra">
+                                  {column}:{" "}
+                                  {leftExtra === rightExtra ? (
+                                    leftExtra
+                                  ) : (
+                                    <>
+                                      <span className="del">{leftExtra}</span>
+                                      <span className="sep"> → </span>
+                                      <span className="add">{rightExtra}</span>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                        </div>
                       </div>
                     );
                   })}
@@ -406,8 +456,8 @@ export default function App() {
         </section>
       ) : (
         <p className="empty">
-          Point A and B at the two SQL instances, test each connection, then compare. Use sample
-          data first if you want to see the visualization without live servers.
+          Choose two server names from the dropdowns, then compare. Use sample data to preview the
+          visualization without connecting to live SQL.
         </p>
       )}
     </div>
@@ -436,46 +486,30 @@ function Stat({
   );
 }
 
-function ValueCell({
+function PairCell({
   status,
-  side,
   left,
   right,
 }: {
   status: DiffStatus;
-  side: "left" | "right";
   left: string;
   right: string;
 }) {
-  if (status !== "changed") {
-    const value = side === "left" ? left : right;
-    return <code>{value === "∅" && status !== "identical" ? "—" : value}</code>;
-  }
+  if (status === "left_only") return <code>{left === "∅" ? "—" : left}</code>;
+  if (status === "right_only") return <code>{right === "∅" ? "—" : right}</code>;
+  if (left === right) return <code>{left}</code>;
   const tokens = diffValues(left, right);
   return (
     <code>
-      {tokens
-        .filter((token) => (side === "left" ? token.type !== "add" : token.type !== "del"))
-        .map((token, index) => (
-          <span key={`${token.type}-${index}`} className={token.type === "same" ? undefined : token.type}>
-            {token.text}
-          </span>
-        ))}
+      {tokens.map((token, index) => (
+        <span key={`${token.type}-${index}`} className={token.type === "same" ? undefined : token.type}>
+          {token.text}
+        </span>
+      ))}
     </code>
   );
 }
 
 function rowKey(row: DiffRow): string {
   return `${row.status}:${Object.values(row.key).join("|")}`;
-}
-
-function stripPublic(connection: SqlConnection, fallbackLabel: string): SqlConnection {
-  return {
-    ...emptyConnection(fallbackLabel),
-    ...connection,
-    password: "",
-    host: connection.host ?? "",
-    username: connection.username ?? "",
-    schema_name: connection.schema_name ?? (connection.driver === "sqlite" ? null : "dbo"),
-  };
 }

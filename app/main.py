@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.compare import compare_tables, guess_key_and_value_columns
+from app.compare import compare_tables
 from app.db import DatabaseError, inspect_connection, load_table
 from app.demo import LEFT_SETTINGS, RIGHT_SETTINGS, demo_connections, demo_snapshot
 from app.models import (
@@ -17,8 +17,11 @@ from app.models import (
     InspectRequest,
     InspectResponse,
     InstanceSnapshot,
+    PublicConfig,
     SqlConnection,
 )
+from app.query import KEY_COLUMNS, SETTINGS_SELECT, TABLE_NAME, VALUE_COLUMNS
+from app.servers import load_server_catalog, resolve_server
 
 settings = AppSettings()
 app = FastAPI(title="TBLINISETTINGS Compare", version="1.0.0")
@@ -37,19 +40,31 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/api/config")
-def public_config():
-    return settings.public_config()
+@app.get("/api/config", response_model=PublicConfig)
+def public_config() -> PublicConfig:
+    return PublicConfig(
+        servers=load_server_catalog(settings),
+        database=settings.sql_database,
+        username=settings.sql_username or None,
+        schema_name=settings.sql_schema,
+        table=TABLE_NAME,
+        query=SETTINGS_SELECT,
+    )
+
+
+@app.get("/api/servers")
+def list_servers():
+    return {"servers": load_server_catalog(settings)}
 
 
 @app.post("/api/inspect", response_model=InspectResponse)
 def inspect_sql(request: InspectRequest) -> InspectResponse:
     try:
-        payload = inspect_connection(request.connection, request.max_preview_rows)
-    except DatabaseError as exc:
+        connection = _connection_from_inspect(request)
+        payload = inspect_connection(connection, request.max_preview_rows)
+    except (DatabaseError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    connection = request.connection
     snapshot = InstanceSnapshot(
         label=connection.label,
         driver=connection.driver,
@@ -58,20 +73,23 @@ def inspect_sql(request: InspectRequest) -> InspectResponse:
         schema_name=payload["actual_schema"],
         row_count=payload["total_count"],
         columns=payload["columns"],
+        server_name=connection.host,
     )
     return InspectResponse(
         snapshot=snapshot,
         suggested_key_columns=payload["key_columns"],
         suggested_value_columns=payload["value_columns"],
         preview=payload["rows"],
+        query=payload["query"],
     )
 
 
 @app.post("/api/compare", response_model=CompareResponse)
 def compare(request: CompareRequest) -> CompareResponse:
     try:
-        return run_compare(request.left, request.right, request)
-    except DatabaseError as exc:
+        left, right = _connections_from_compare(request)
+        return run_compare(left, right, request)
+    except (DatabaseError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -86,38 +104,80 @@ def demo(include_identical: bool = True) -> CompareResponse:
     )
 
 
+def _connection_from_inspect(request: InspectRequest) -> SqlConnection:
+    if request.connection is not None:
+        return request.connection
+    if not request.server:
+        raise ValueError("Choose a server name to inspect.")
+    return resolve_server(
+        request.server,
+        settings,
+        database=request.database,
+        username=request.username,
+        password=request.password,
+        schema_name=request.schema_name,
+    )
+
+
+def _connections_from_compare(request: CompareRequest) -> tuple[SqlConnection, SqlConnection]:
+    if request.left is not None and request.right is not None:
+        return request.left, request.right
+    if not request.left_server or not request.right_server:
+        raise ValueError("Choose two server names to compare.")
+    left = resolve_server(
+        request.left_server,
+        settings,
+        database=request.database,
+        username=request.username,
+        password=request.password,
+        schema_name=request.schema_name,
+    )
+    right = resolve_server(
+        request.right_server,
+        settings,
+        database=request.database,
+        username=request.username,
+        password=request.password,
+        schema_name=request.schema_name,
+    )
+    return left, right
+
+
 def run_compare(
     left: SqlConnection,
     right: SqlConnection,
     request: CompareRequest,
     fallback_rows: tuple[list[dict], list[dict]] | None = None,
 ) -> CompareResponse:
+    used_query = SETTINGS_SELECT
     if fallback_rows is None:
-        left_columns, left_rows, left_table, left_schema, left_total = load_table(left, request.max_rows)
-        right_columns, right_rows, right_table, right_schema, right_total = load_table(right, request.max_rows)
+        left_columns, left_rows, left_table, left_schema, left_total, used_query = load_table(
+            left, request.max_rows
+        )
+        right_columns, right_rows, right_table, right_schema, right_total, _ = load_table(
+            right, request.max_rows
+        )
     else:
         left_columns = demo_snapshot(left.label, left.database, fallback_rows[0]).columns
         left_rows = fallback_rows[0]
-        left_table, left_schema, left_total = "TBLINISETTINGS", None, len(left_rows)
+        left_table, left_schema, left_total = TABLE_NAME, None, len(left_rows)
         right_columns = demo_snapshot(right.label, right.database, fallback_rows[1]).columns
         right_rows = fallback_rows[1]
-        right_table, right_schema, right_total = "TBLINISETTINGS", None, len(right_rows)
-        # Prefer loading from sqlite files when they exist so the demo
-        # exercises the same query path as a live comparison.
+        right_table, right_schema, right_total = TABLE_NAME, None, len(right_rows)
         try:
-            left_columns, left_rows, left_table, left_schema, left_total = load_table(left, request.max_rows)
-            right_columns, right_rows, right_table, right_schema, right_total = load_table(
+            left_columns, left_rows, left_table, left_schema, left_total, used_query = load_table(
+                left, request.max_rows
+            )
+            right_columns, right_rows, right_table, right_schema, right_total, _ = load_table(
                 right, request.max_rows
             )
         except DatabaseError:
             pass
 
-    pk = [column.name for column in left_columns if column.primary_key]
-    guessed_keys, guessed_values = guess_key_and_value_columns(left_columns, pk)
-    key_columns = request.key_columns or guessed_keys
-    value_columns = request.value_columns or guessed_values
-
-    missing = [name for name in key_columns + value_columns if name not in {col.name for col in left_columns}]
+    key_columns = list(KEY_COLUMNS)
+    value_columns = list(VALUE_COLUMNS)
+    left_names = {col.name for col in left_columns}
+    missing = [name for name in key_columns + value_columns if name not in left_names]
     warnings = []
     if missing:
         warnings.append(f"Requested columns were not all present on the left instance: {', '.join(missing)}")
@@ -149,6 +209,7 @@ def run_compare(
             schema_name=left_schema,
             row_count=left_total,
             columns=left_columns,
+            server_name=left.host or left.label,
         ),
         right=InstanceSnapshot(
             label=right.label,
@@ -158,12 +219,14 @@ def run_compare(
             schema_name=right_schema,
             row_count=right_total,
             columns=right_columns,
+            server_name=right.host or right.label,
         ),
         key_columns=key_columns,
         value_columns=value_columns,
         summary=summary,
         rows=rows,
         warnings=warnings,
+        query=used_query,
     )
 
 
