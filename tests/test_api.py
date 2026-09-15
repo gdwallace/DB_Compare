@@ -119,6 +119,106 @@ def test_inspect_missing_table():
     assert "not found" in response.json()["detail"].lower()
 
 
+def test_compare_uses_distinct_databases(monkeypatch):
+    captured: list[tuple[str, str | None]] = []
+
+    def fake_resolve(name, settings, *, database=None, **kwargs):
+        captured.append((name, database))
+        from app.models import SqlConnection
+
+        return SqlConnection(
+            label=name,
+            driver="sqlite",
+            database=database or "missing",
+            schema_name=None,
+            table="TBLINISETTINGS",
+        )
+
+    def fake_load(connection, max_rows):
+        from app.models import ColumnInfo
+
+        rows = LEFT_SETTINGS if "butterfly" in connection.label else RIGHT_SETTINGS
+        columns = [
+            ColumnInfo(name=name, type="TEXT", nullable=True, primary_key=False)
+            for name in [
+                "SECTION",
+                "NAME",
+                "INIVALUE",
+                "DESCRIPTION",
+                "EXPOSED",
+                "DATATYPE",
+                "DATAFORMAT",
+            ]
+        ]
+        return columns, rows, "TBLINISETTINGS", None, len(rows), SETTINGS_SELECT
+
+    monkeypatch.setattr("app.main.resolve_server", fake_resolve)
+    monkeypatch.setattr("app.main.load_table", fake_load)
+    response = client.post(
+        "/api/compare",
+        json={
+            "left_server": "sql-butterfly.appian.trimblemaps.com",
+            "right_server": "sql01.staging.appiantesting.com",
+            "left_database": "ProdCatalog",
+            "right_database": "StageCatalog",
+        },
+    )
+    assert response.status_code == 200
+    assert captured == [
+        ("sql-butterfly.appian.trimblemaps.com", "ProdCatalog"),
+        ("sql01.staging.appiantesting.com", "StageCatalog"),
+    ]
+    body = response.json()
+    assert body["left"]["database"] == "ProdCatalog"
+    assert body["right"]["database"] == "StageCatalog"
+
+
+def test_compare_shared_database_still_applies_to_both(monkeypatch):
+    captured: list[str | None] = []
+
+    def fake_resolve(name, settings, *, database=None, **kwargs):
+        captured.append(database)
+        from app.models import SqlConnection
+
+        return SqlConnection(
+            label=name,
+            driver="sqlite",
+            database=database or "missing",
+            schema_name=None,
+            table="TBLINISETTINGS",
+        )
+
+    def fake_load(connection, max_rows):
+        from app.models import ColumnInfo
+
+        columns = [
+            ColumnInfo(name=name, type="TEXT", nullable=True, primary_key=False)
+            for name in [
+                "SECTION",
+                "NAME",
+                "INIVALUE",
+                "DESCRIPTION",
+                "EXPOSED",
+                "DATATYPE",
+                "DATAFORMAT",
+            ]
+        ]
+        return columns, LEFT_SETTINGS, "TBLINISETTINGS", None, len(LEFT_SETTINGS), SETTINGS_SELECT
+
+    monkeypatch.setattr("app.main.resolve_server", fake_resolve)
+    monkeypatch.setattr("app.main.load_table", fake_load)
+    response = client.post(
+        "/api/compare",
+        json={
+            "left_server": "sql-butterfly.appian.trimblemaps.com",
+            "right_server": "sql01.staging.appiantesting.com",
+            "database": "SharedCatalog",
+        },
+    )
+    assert response.status_code == 200
+    assert captured == ["SharedCatalog", "SharedCatalog"]
+
+
 def test_compare_rejects_unknown_server_name():
     response = client.post(
         "/api/compare",

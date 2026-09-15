@@ -79,6 +79,18 @@ def test_resolve_server_uses_group_credentials():
     assert stage.password == "stage-secret"
 
 
+def test_resolve_server_uses_per_side_database_override():
+    settings = AppSettings(
+        sql_database="DefaultDB",
+        appian_password="prod-secret",
+        appian_stage_password="stage-secret",
+    )
+    prod = resolve_server("sql-butterfly.appian.trimblemaps.com", settings, database="ProdCatalog")
+    stage = resolve_server("sql01.staging.appiantesting.com", settings, database="StageCatalog")
+    assert prod.database == "ProdCatalog"
+    assert stage.database == "StageCatalog"
+
+
 def test_resolve_requires_group_password():
     settings = AppSettings(
         sql_database="AppDB",

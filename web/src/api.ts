@@ -35,6 +35,8 @@ export async function compareServers(
   extras: {
     includeIdentical: boolean;
     database?: string;
+    left_database?: string;
+    right_database?: string;
     schema_name?: string;
   },
 ): Promise<CompareResponse> {
@@ -46,6 +48,8 @@ export async function compareServers(
       right_server: rightServer,
       include_identical: extras.includeIdentical,
       database: extras.database,
+      left_database: extras.left_database,
+      right_database: extras.right_database,
       schema_name: extras.schema_name,
     }),
   });

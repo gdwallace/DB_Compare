@@ -49,6 +49,8 @@ class CompareRequest(BaseModel):
     right: SqlConnection | None = None
     include_identical: bool = True
     database: str | None = None
+    left_database: str | None = None
+    right_database: str | None = None
     username: str | None = None
     password: str | None = None
     schema_name: str | None = None

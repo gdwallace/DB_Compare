@@ -126,7 +126,7 @@ def _connections_from_compare(request: CompareRequest) -> tuple[SqlConnection, S
     left = resolve_server(
         request.left_server,
         settings,
-        database=request.database,
+        database=request.left_database or request.database,
         username=request.username,
         password=request.password,
         schema_name=request.schema_name,
@@ -134,7 +134,7 @@ def _connections_from_compare(request: CompareRequest) -> tuple[SqlConnection, S
     right = resolve_server(
         request.right_server,
         settings,
-        database=request.database,
+        database=request.right_database or request.database,
         username=request.username,
         password=request.password,
         schema_name=request.schema_name,

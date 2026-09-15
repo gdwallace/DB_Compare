@@ -6,8 +6,11 @@ type Props = {
   servers: ServerInfo[];
   value: string;
   onChange: (serverName: string) => void;
+  database: string;
+  onDatabaseChange: (database: string) => void;
   onTest: () => void;
   testing: boolean;
+  canTest?: boolean;
   message?: string;
   error?: string;
 };
@@ -17,8 +20,11 @@ export default function ServerPicker({
   servers,
   value,
   onChange,
+  database,
+  onDatabaseChange,
   onTest,
   testing,
+  canTest = true,
   message,
   error,
 }: Props) {
@@ -49,6 +55,17 @@ export default function ServerPicker({
           ))}
         </select>
       </label>
+      <label htmlFor={`${side}-database-name`}>
+        Database name
+        <input
+          id={`${side}-database-name`}
+          value={database}
+          onChange={(event) => onDatabaseChange(event.target.value)}
+          placeholder={side === "left" ? "Production database" : "Staging database"}
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </label>
       <p className="hint">
         {selected?.username
           ? `Connects as ${selected.username}${selected.password_configured ? "" : " (password missing in .env)"}`
@@ -56,7 +73,7 @@ export default function ServerPicker({
       </p>
 
       <div className="panel-actions">
-        <button type="button" className="ghost" onClick={onTest} disabled={testing || !value}>
+        <button type="button" className="ghost" onClick={onTest} disabled={testing || !value || !canTest}>
           {testing ? "Testing…" : "Test connection"}
         </button>
       </div>
