@@ -31,7 +31,15 @@ or:
 python3 scripts/launch.py
 ```
 
+or, on Windows from the repo root:
+
+```bat
+python scripts\launch.py
+```
+
 That creates `.venv`, installs Python and Node packages, copies `.env.example` to `.env` if needed, then starts the API and UI.
+
+Windows needs **Node.js LTS** (https://nodejs.org) so `npm.cmd` is on PATH. Open a new terminal after installing it. If Node is missing but `web/dist` already exists, the launcher serves the built UI at http://127.0.0.1:8000 instead.
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Fill `APPIAN_PASSWORD` and `APPIAN_STAGE_PASSWORD` in `.env` before comparing live servers.
 
