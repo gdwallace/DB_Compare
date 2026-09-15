@@ -28,7 +28,8 @@ export default function App() {
   const [servers, setServers] = useState<ServerInfo[]>([]);
   const [leftServer, setLeftServer] = useState("");
   const [rightServer, setRightServer] = useState("");
-  const [database, setDatabase] = useState("");
+  const [leftDatabase, setLeftDatabase] = useState("");
+  const [rightDatabase, setRightDatabase] = useState("");
   const [schemaName, setSchemaName] = useState("dbo");
   const [testing, setTesting] = useState<"left" | "right" | null>(null);
   const [leftMsg, setLeftMsg] = useState<string>();
@@ -48,7 +49,8 @@ export default function App() {
       .then((payload) => {
         setConfig(payload);
         setServers(payload.servers);
-        setDatabase(payload.database);
+        setLeftDatabase(payload.database);
+        setRightDatabase(payload.database);
         setSchemaName(payload.schema_name || "dbo");
         const maps = payload.servers.filter((server) => (server.credential_group || "appian") === "appian");
         const staging = payload.servers.filter((server) => server.credential_group === "appian_stage");
@@ -61,12 +63,12 @@ export default function App() {
   }, []);
 
   const extras = {
-    database: database || undefined,
     schema_name: schemaName || undefined,
   };
 
   async function testSide(side: "left" | "right") {
     const server = side === "left" ? leftServer : rightServer;
+    const database = side === "left" ? leftDatabase : rightDatabase;
     setTesting(side);
     setError(undefined);
     if (side === "left") {
@@ -77,7 +79,7 @@ export default function App() {
       setRightMsg(undefined);
     }
     try {
-      const inspected = await inspectServer(server, extras);
+      const inspected = await inspectServer(server, { ...extras, database: database || undefined });
       const msg = `${server}: ${inspected.snapshot.row_count} rows`;
       if (side === "left") setLeftMsg(msg);
       else setRightMsg(msg);
@@ -96,6 +98,8 @@ export default function App() {
     try {
       const payload = await compareServers(leftServer, rightServer, {
         includeIdentical: true,
+        left_database: leftDatabase || undefined,
+        right_database: rightDatabase || undefined,
         ...extras,
       });
       setResult(payload);
@@ -212,7 +216,12 @@ export default function App() {
           <button type="button" className="ghost" onClick={runDemo} disabled={busy}>
             Load sample data
           </button>
-          <button type="button" className="primary" onClick={runCompare} disabled={busy || !leftServer || !rightServer}>
+          <button
+            type="button"
+            className="primary"
+            onClick={runCompare}
+            disabled={busy || !leftServer || !rightServer || !leftDatabase.trim() || !rightDatabase.trim()}
+          >
             {busy ? "Comparing…" : "Compare servers"}
           </button>
         </div>
@@ -224,8 +233,11 @@ export default function App() {
           servers={servers}
           value={leftServer}
           onChange={setLeftServer}
+          database={leftDatabase}
+          onDatabaseChange={setLeftDatabase}
           onTest={() => testSide("left")}
           testing={testing === "left"}
+          canTest={Boolean(leftDatabase.trim())}
           message={leftMsg}
           error={leftErr}
         />
@@ -234,21 +246,25 @@ export default function App() {
           servers={servers}
           value={rightServer}
           onChange={setRightServer}
+          database={rightDatabase}
+          onDatabaseChange={setRightDatabase}
           onTest={() => testSide("right")}
           testing={testing === "right"}
+          canTest={Boolean(rightDatabase.trim())}
           message={rightMsg}
           error={rightErr}
         />
       </div>
 
       <section className="shared-creds">
-        <label>
-          Database
-          <input value={database} onChange={(event) => setDatabase(event.target.value)} placeholder="Database name" />
-        </label>
-        <label>
+        <p className="hint query-preview">
+          A queries <code>{qualify(leftDatabase, schemaName)}</code>
+          {" · "}
+          B queries <code>{qualify(rightDatabase, schemaName)}</code>
+        </p>
+        <label htmlFor="schema-name">
           Schema
-          <input value={schemaName} onChange={(event) => setSchemaName(event.target.value)} />
+          <input id="schema-name" value={schemaName} onChange={(event) => setSchemaName(event.target.value)} />
         </label>
       </section>
       <p className="hint">
@@ -441,7 +457,7 @@ export default function App() {
         </section>
       ) : (
         <p className="empty">
-          Choose two server names from the dropdowns, then compare. Use sample data to preview the
+          Choose two server names and enter each database name, then compare. Use sample data to preview the
           visualization without connecting to live SQL.
         </p>
       )}
@@ -490,6 +506,12 @@ function PairCell({
       <span className="add">{right}</span>
     </code>
   );
+}
+
+function qualify(database: string, schemaName: string): string {
+  const catalog = database.trim() || "(database)";
+  const schema = schemaName.trim() || "dbo";
+  return `${catalog}.${schema}.TBLINISETTINGS`;
 }
 
 function rowKey(row: DiffRow): string {

@@ -124,6 +124,9 @@ h1 {
   border-radius: 18px;
   padding: 18px;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .panel-left {
@@ -138,7 +141,7 @@ h1 {
   display: flex;
   gap: 10px;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 0;
 }
 
 .instance-mark {
@@ -176,9 +179,13 @@ h1 {
 }
 
 .hint {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.page > .hint {
+  margin-top: 10px;
 }
 
 .lede code,
@@ -192,13 +199,19 @@ h1 {
 
 .shared-creds {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: 1fr auto;
+  gap: 12px 16px;
+  align-items: end;
   margin-top: 16px;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 16px 18px;
+}
+
+.shared-creds .query-preview {
+  margin: 0;
+  align-self: center;
 }
 
 .ini-extra {
@@ -238,7 +251,7 @@ select {
 
 .ok-msg,
 .err-msg {
-  margin: 10px 0 0;
+  margin: 0;
   font-size: 13px;
 }
 

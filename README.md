@@ -59,7 +59,7 @@ If Node is missing but `web/dist` already exists, the launcher serves the built 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Fill `APPIAN_PASSWORD` and `APPIAN_STAGE_PASSWORD` in `.env` before comparing live servers.
 
 1. Choose two server names from the dropdowns.
-2. Enter the database name (and schema if not `dbo`).
+2. Enter the **production** database name on A and the **staging** database name on B (they can differ). Schema defaults to `dbo`.
 3. Click **Compare servers**.
 
 Each server uses the login for its group. Passwords stay in `.env` and are not sent to the browser.
