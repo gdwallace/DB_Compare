@@ -45,7 +45,6 @@ def public_config() -> PublicConfig:
     return PublicConfig(
         servers=load_server_catalog(settings),
         database=settings.sql_database,
-        username=settings.sql_username or None,
         schema_name=settings.sql_schema,
         table=TABLE_NAME,
         query=SETTINGS_SELECT,

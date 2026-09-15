@@ -1,5 +1,5 @@
 import type { ServerInfo } from "./types";
-import { serverLabel } from "./types";
+import { groupedServers, serverLabel } from "./types";
 
 type Props = {
   side: "left" | "right";
@@ -22,6 +22,9 @@ export default function ServerPicker({
   message,
   error,
 }: Props) {
+  const selected = servers.find((server) => server.name === value);
+  const groups = groupedServers(servers);
+
   return (
     <section className={`panel panel-${side}`}>
       <header className="panel-head">
@@ -35,14 +38,22 @@ export default function ServerPicker({
           <option value="" disabled>
             {servers.length ? "Select a server…" : "No servers configured"}
           </option>
-          {servers.map((server) => (
-            <option key={server.name} value={server.name}>
-              {serverLabel(server)}
-            </option>
+          {groups.map((group) => (
+            <optgroup key={group.group} label={group.label}>
+              {group.servers.map((server) => (
+                <option key={server.name} value={server.name}>
+                  {serverLabel(server)}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>
-      <p className="hint">Connected by server name, not IP address.</p>
+      <p className="hint">
+        {selected?.username
+          ? `Connects as ${selected.username}${selected.password_configured ? "" : " (password missing in .env)"}`
+          : "Connected by server name, not IP address."}
+      </p>
 
       <div className="panel-actions">
         <button type="button" className="ghost" onClick={onTest} disabled={testing || !value}>

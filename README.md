@@ -23,6 +23,7 @@ Pick the two servers from dropdowns (SQL Server **names**, not IP addresses).
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
+cp .env.example .env   # fill APPIAN_PASSWORD and APPIAN_STAGE_PASSWORD
 cd web && npm install && cd ..
 chmod +x scripts/dev.sh
 ./scripts/dev.sh
@@ -30,26 +31,24 @@ chmod +x scripts/dev.sh
 
 Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-1. Put your SQL Server names in `config/servers.json` or `SQL_SERVER_NAMES` in `.env`.
-2. Set `SQL_DATABASE` / username / password (or enter them in the form).
-3. Choose two names from the dropdowns and click **Compare servers**.
+1. Choose two server names from the dropdowns.
+2. Enter the database name (and schema if not `dbo`).
+3. Click **Compare servers**.
+
+Each server uses the login for its group. Passwords stay in `.env` and are not sent to the browser.
 
 **Load sample data** compares bundled SQLite copies so you can use the UI without live servers.
 
-## Server names
+## Servers
 
-`config/servers.json`:
+Configured in `config/servers.json`:
 
-```json
-{
-  "servers": [
-    { "name": "SQL-PROD-01" },
-    { "name": "SQL-UAT-01" }
-  ]
-}
-```
+| Group | Login | Servers |
+| --- | --- | --- |
+| Trimble Maps | AppianAppUser2025 | sql-butterfly, sql-tadpole, sql-milkyway, sql-fireworks, law-sql01 (`.appian.trimblemaps.com`) |
+| Staging | AppianAppStageUser2025 | sql01.staging, law-sql02.staging (`.staging.appiantesting.com`) |
 
-Replace those names with the instances you host. Named instances are supported as `HOSTNAME\\INSTANCENAME`. Connections always use the server name, never an IP.
+Set `APPIAN_PASSWORD` and `APPIAN_STAGE_PASSWORD` in `.env`. Never commit that file.
 
 ## Production-style serve
 

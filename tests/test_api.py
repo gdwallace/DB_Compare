@@ -16,10 +16,16 @@ def test_health():
 def test_servers_dropdown_catalog():
     response = client.get("/api/servers")
     assert response.status_code == 200
-    names = [server["name"] for server in response.json()["servers"]]
-    assert "SQL-PROD-01" in names
-    assert "SQL-UAT-01" in names
-    assert all("." not in name or not name.replace(".", "").isdigit() for name in names)
+    payload = response.json()["servers"]
+    names = [server["name"] for server in payload]
+    assert "sql-butterfly.appian.trimblemaps.com" in names
+    assert "sql01.staging.appiantesting.com" in names
+    assert "law-sql02.staging.appiantesting.com" in names
+    assert all("password" not in server for server in payload)
+    butterfly = next(server for server in payload if server["name"].startswith("sql-butterfly"))
+    staging = next(server for server in payload if "staging" in server["name"])
+    assert butterfly["username"] == "AppianAppUser2025"
+    assert staging["username"] == "AppianAppStageUser2025"
 
 
 def test_config_exposes_server_names_and_query():
@@ -27,7 +33,10 @@ def test_config_exposes_server_names_and_query():
     payload = response.json()
     assert payload["query"] == SETTINGS_SELECT
     assert payload["table"] == "TBLINISETTINGS"
-    assert {server["name"] for server in payload["servers"]} >= {"SQL-PROD-01", "SQL-UAT-01"}
+    assert "username" not in payload or payload.get("username") in (None, "")
+    names = {server["name"] for server in payload["servers"]}
+    assert "sql-tadpole.appian.trimblemaps.com" in names
+    assert "law-sql01.appian.trimblemaps.com" in names
 
 
 def test_demo_compare_matches_sample_drift():
@@ -113,7 +122,21 @@ def test_inspect_missing_table():
 def test_compare_rejects_unknown_server_name():
     response = client.post(
         "/api/compare",
-        json={"left_server": "NOT-A-SERVER", "right_server": "SQL-UAT-01", "database": "AppDB"},
+        json={
+            "left_server": "NOT-A-SERVER",
+            "right_server": "sql-tadpole.appian.trimblemaps.com",
+            "database": "AppDB",
+        },
     )
     assert response.status_code == 400
     assert "unknown server" in response.json()["detail"].lower()
+
+
+def test_api_does_not_leak_passwords():
+    for path in ("/api/config", "/api/servers"):
+        body = client.get(path).text
+        assert "password" not in body.lower() or "password_configured" in body
+        assert "XcB+" not in body
+        assert "yBUc" not in body
+        assert "~7qgE" not in body
+        assert "2}kqe" not in body

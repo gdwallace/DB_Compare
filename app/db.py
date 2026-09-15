@@ -57,7 +57,13 @@ def create_sql_engine(connection: SqlConnection) -> Engine:
         }
         if "\\" not in server_name and connection.port:
             kwargs["port"] = str(connection.port)
-        return pymssql.connect(**kwargs)
+        if connection.encrypt:
+            kwargs["encryption"] = "request"
+        try:
+            return pymssql.connect(**kwargs)
+        except TypeError:
+            kwargs.pop("encryption", None)
+            return pymssql.connect(**kwargs)
 
     return create_engine("mssql+pymssql://", creator=_connect, pool_pre_ping=True)
 

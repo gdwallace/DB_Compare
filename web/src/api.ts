@@ -18,7 +18,7 @@ export async function fetchConfig(): Promise<PublicConfig> {
 
 export async function inspectServer(
   server: string,
-  extras: { database?: string; username?: string; password?: string; schema_name?: string },
+  extras: { database?: string; schema_name?: string },
 ): Promise<InspectResponse> {
   const response = await fetch("/api/inspect", {
     method: "POST",
@@ -35,8 +35,6 @@ export async function compareServers(
   extras: {
     includeIdentical: boolean;
     database?: string;
-    username?: string;
-    password?: string;
     schema_name?: string;
   },
 ): Promise<CompareResponse> {
@@ -48,8 +46,6 @@ export async function compareServers(
       right_server: rightServer,
       include_identical: extras.includeIdentical,
       database: extras.database,
-      username: extras.username,
-      password: extras.password,
       schema_name: extras.schema_name,
     }),
   });

@@ -1,5 +1,6 @@
 export type Driver = "mssql" | "sqlite";
 export type DiffStatus = "identical" | "changed" | "left_only" | "right_only";
+export type CredentialGroup = "appian" | "appian_stage";
 
 export type ServerInfo = {
   name: string;
@@ -7,6 +8,9 @@ export type ServerInfo = {
   database?: string | null;
   port?: number | null;
   schema_name?: string | null;
+  credential_group?: CredentialGroup;
+  username?: string | null;
+  password_configured?: boolean;
 };
 
 export type ColumnInfo = {
@@ -66,7 +70,6 @@ export type InspectResponse = {
 export type PublicConfig = {
   servers: ServerInfo[];
   database: string;
-  username?: string | null;
   schema_name: string;
   table: string;
   query: string;
@@ -79,6 +82,22 @@ export const STATUS_LABEL: Record<DiffStatus, string> = {
   right_only: "Only B",
 };
 
+export const GROUP_LABEL: Record<CredentialGroup, string> = {
+  appian: "Trimble Maps",
+  appian_stage: "Staging",
+};
+
 export function serverLabel(server: ServerInfo): string {
   return server.label || server.name;
+}
+
+export function groupedServers(servers: ServerInfo[]): { group: CredentialGroup; label: string; servers: ServerInfo[] }[] {
+  const order: CredentialGroup[] = ["appian", "appian_stage"];
+  return order
+    .map((group) => ({
+      group,
+      label: GROUP_LABEL[group],
+      servers: servers.filter((server) => (server.credential_group || "appian") === group),
+    }))
+    .filter((entry) => entry.servers.length > 0);
 }

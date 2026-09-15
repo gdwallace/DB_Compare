@@ -3,9 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.models import AppSettings, ServerInfo, SqlConnection
+from app.models import AppSettings, CredentialGroup, ServerInfo, SqlConnection
 
 SERVERS_FILE = Path(__file__).resolve().parent.parent / "config" / "servers.json"
+
+GROUP_LABELS: dict[CredentialGroup, str] = {
+    "appian": "Trimble Maps",
+    "appian_stage": "Staging",
+}
 
 
 def load_server_catalog(settings: AppSettings | None = None) -> list[ServerInfo]:
@@ -21,14 +26,16 @@ def load_server_catalog(settings: AppSettings | None = None) -> list[ServerInfo]
             if key in seen:
                 continue
             seen.add(key)
-            servers.append(server)
+            servers.append(_with_public_credentials(server, settings))
 
     for raw in settings.sql_server_names.split(","):
         name = raw.strip()
         if not name or name.casefold() in seen:
             continue
         seen.add(name.casefold())
-        servers.append(ServerInfo(name=name, label=name))
+        servers.append(
+            _with_public_credentials(ServerInfo(name=name, label=name, credential_group="appian"), settings)
+        )
 
     return servers
 
@@ -61,14 +68,32 @@ def resolve_server(
     if not db_name:
         raise ValueError("Database name is required. Set SQL_DATABASE or enter it in the form.")
 
+    group_user, group_password = settings.credentials_for(server.credential_group)
+    resolved_user = username or group_user
+    resolved_password = password or group_password
+    if not resolved_user or not resolved_password:
+        env_name = "APPIAN_STAGE_PASSWORD" if server.credential_group == "appian_stage" else "APPIAN_PASSWORD"
+        raise ValueError(f"No password configured for {GROUP_LABELS[server.credential_group]}. Set {env_name} in .env.")
+
     return SqlConnection(
         label=server.label or server.name,
         driver="mssql",
         host=server.name,
         port=server.port or settings.sql_port,
         database=db_name,
-        username=username or settings.sql_username or None,
-        password=password or settings.sql_password or None,
+        username=resolved_user,
+        password=resolved_password,
         schema_name=schema_name or server.schema_name or settings.sql_schema or "dbo",
         table="TBLINISETTINGS",
+        encrypt=True,
+    )
+
+
+def _with_public_credentials(server: ServerInfo, settings: AppSettings) -> ServerInfo:
+    user, password = settings.credentials_for(server.credential_group)
+    return server.model_copy(
+        update={
+            "username": user or None,
+            "password_configured": bool(password),
+        }
     )

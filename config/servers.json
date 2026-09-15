@@ -1,12 +1,39 @@
 {
   "servers": [
     {
-      "name": "SQL-PROD-01",
-      "label": "SQL-PROD-01"
+      "name": "sql-butterfly.appian.trimblemaps.com",
+      "label": "sql-butterfly",
+      "credential_group": "appian"
     },
     {
-      "name": "SQL-UAT-01",
-      "label": "SQL-UAT-01"
+      "name": "sql-tadpole.appian.trimblemaps.com",
+      "label": "sql-tadpole",
+      "credential_group": "appian"
+    },
+    {
+      "name": "sql-milkyway.appian.trimblemaps.com",
+      "label": "sql-milkyway",
+      "credential_group": "appian"
+    },
+    {
+      "name": "sql-fireworks.appian.trimblemaps.com",
+      "label": "sql-fireworks",
+      "credential_group": "appian"
+    },
+    {
+      "name": "law-sql01.appian.trimblemaps.com",
+      "label": "law-sql01",
+      "credential_group": "appian"
+    },
+    {
+      "name": "sql01.staging.appiantesting.com",
+      "label": "sql01.staging",
+      "credential_group": "appian_stage"
+    },
+    {
+      "name": "law-sql02.staging.appiantesting.com",
+      "label": "law-sql02.staging",
+      "credential_group": "appian_stage"
     }
   ]
 }

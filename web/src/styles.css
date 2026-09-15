@@ -192,7 +192,7 @@ h1 {
 
 .shared-creds {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 16px;
   background: var(--card);

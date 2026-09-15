@@ -11,12 +11,18 @@ Driver = Literal["mssql", "sqlite"]
 DiffStatus = Literal["identical", "changed", "left_only", "right_only"]
 
 
+CredentialGroup = Literal["appian", "appian_stage"]
+
+
 class ServerInfo(BaseModel):
     name: str
     label: str | None = None
     database: str | None = None
     port: int | None = None
     schema_name: str | None = None
+    credential_group: CredentialGroup = "appian"
+    username: str | None = None
+    password_configured: bool = False
 
     def display_name(self) -> str:
         return self.label or self.name
@@ -116,7 +122,6 @@ class InspectResponse(BaseModel):
 class PublicConfig(BaseModel):
     servers: list[ServerInfo]
     database: str = ""
-    username: str | None = None
     schema_name: str = "dbo"
     table: str = TABLE_NAME
     query: str = (
@@ -130,7 +135,14 @@ class AppSettings(BaseSettings):
 
     sql_server_names: str = ""
     sql_database: str = ""
-    sql_username: str = ""
-    sql_password: str = ""
     sql_port: int = 1433
     sql_schema: str = "dbo"
+    appian_username: str = "AppianAppUser2025"
+    appian_password: str = ""
+    appian_stage_username: str = "AppianAppStageUser2025"
+    appian_stage_password: str = ""
+
+    def credentials_for(self, group: CredentialGroup) -> tuple[str, str]:
+        if group == "appian_stage":
+            return self.appian_stage_username, self.appian_stage_password
+        return self.appian_username, self.appian_password

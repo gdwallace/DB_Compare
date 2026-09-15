@@ -29,8 +29,6 @@ export default function App() {
   const [leftServer, setLeftServer] = useState("");
   const [rightServer, setRightServer] = useState("");
   const [database, setDatabase] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [schemaName, setSchemaName] = useState("dbo");
   const [testing, setTesting] = useState<"left" | "right" | null>(null);
   const [leftMsg, setLeftMsg] = useState<string>();
@@ -51,19 +49,19 @@ export default function App() {
         setConfig(payload);
         setServers(payload.servers);
         setDatabase(payload.database);
-        setUsername(payload.username ?? "");
         setSchemaName(payload.schema_name || "dbo");
-        if (payload.servers[0]) setLeftServer(payload.servers[0].name);
-        if (payload.servers[1]) setRightServer(payload.servers[1].name);
-        else if (payload.servers[0]) setRightServer(payload.servers[0].name);
+        const maps = payload.servers.filter((server) => (server.credential_group || "appian") === "appian");
+        const staging = payload.servers.filter((server) => server.credential_group === "appian_stage");
+        if (maps[0]) setLeftServer(maps[0].name);
+        if (staging[0]) setRightServer(staging[0].name);
+        else if (maps[1]) setRightServer(maps[1].name);
+        else if (payload.servers[1]) setRightServer(payload.servers[1].name);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, []);
 
   const extras = {
     database: database || undefined,
-    username: username || undefined,
-    password: password || undefined,
     schema_name: schemaName || undefined,
   };
 
@@ -249,26 +247,13 @@ export default function App() {
           <input value={database} onChange={(event) => setDatabase(event.target.value)} placeholder="Database name" />
         </label>
         <label>
-          Username
-          <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="new-password"
-          />
-        </label>
-        <label>
           Schema
           <input value={schemaName} onChange={(event) => setSchemaName(event.target.value)} />
         </label>
       </section>
       <p className="hint">
-        Server names live in <code>config/servers.json</code> or <code>SQL_SERVER_NAMES</code>. Edit
-        those names to match the instances you host.
+        Trimble Maps servers use AppianAppUser2025. Staging servers use AppianAppStageUser2025. Passwords stay in{" "}
+        <code>.env</code>, not in the browser.
       </p>
 
       {error ? <div className="banner error">{error}</div> : null}

@@ -61,15 +61,35 @@ def test_engine_rejects_ip_address():
         )
 
 
-def test_resolve_server_uses_catalog_name():
-    settings = AppSettings(sql_database="AppDB", sql_username="app")
-    connection = resolve_server("SQL-PROD-01", settings)
-    assert connection.host == "SQL-PROD-01"
-    assert connection.label == "SQL-PROD-01"
-    assert connection.database == "AppDB"
+def test_resolve_server_uses_group_credentials():
+    settings = AppSettings(
+        sql_database="AppDB",
+        appian_username="AppianAppUser2025",
+        appian_password="prod-secret",
+        appian_stage_username="AppianAppStageUser2025",
+        appian_stage_password="stage-secret",
+    )
+    prod = resolve_server("sql-butterfly.appian.trimblemaps.com", settings)
+    stage = resolve_server("sql01.staging.appiantesting.com", settings)
+    assert prod.host == "sql-butterfly.appian.trimblemaps.com"
+    assert prod.username == "AppianAppUser2025"
+    assert prod.password == "prod-secret"
+    assert stage.host == "sql01.staging.appiantesting.com"
+    assert stage.username == "AppianAppStageUser2025"
+    assert stage.password == "stage-secret"
+
+
+def test_resolve_requires_group_password():
+    settings = AppSettings(
+        sql_database="AppDB",
+        appian_password="",
+        appian_stage_password="",
+    )
+    with pytest.raises(ValueError, match="APPIAN_PASSWORD"):
+        resolve_server("sql-butterfly.appian.trimblemaps.com", settings)
 
 
 def test_catalog_includes_json_servers():
     names = [server.name for server in load_server_catalog(AppSettings())]
-    assert "SQL-PROD-01" in names
-    assert "SQL-UAT-01" in names
+    assert "sql-fireworks.appian.trimblemaps.com" in names
+    assert "law-sql02.staging.appiantesting.com" in names
