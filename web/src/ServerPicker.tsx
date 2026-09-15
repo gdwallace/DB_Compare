@@ -8,6 +8,7 @@ type Props = {
   onChange: (serverName: string) => void;
   onTest: () => void;
   testing: boolean;
+  canTest?: boolean;
   message?: string;
   error?: string;
 };
@@ -19,6 +20,7 @@ export default function ServerPicker({
   onChange,
   onTest,
   testing,
+  canTest = true,
   message,
   error,
 }: Props) {
@@ -56,7 +58,7 @@ export default function ServerPicker({
       </p>
 
       <div className="panel-actions">
-        <button type="button" className="ghost" onClick={onTest} disabled={testing || !value}>
+        <button type="button" className="ghost" onClick={onTest} disabled={testing || !value || !canTest}>
           {testing ? "Testing…" : "Test connection"}
         </button>
       </div>

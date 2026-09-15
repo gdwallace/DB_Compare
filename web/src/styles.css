@@ -190,15 +190,36 @@ h1 {
   border-radius: 6px;
 }
 
-.shared-creds {
+.database-panel {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 16px;
+  grid-template-columns: 1fr auto;
+  gap: 12px 16px;
+  align-items: end;
+  margin: 0 0 16px;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+.database-panel > label:first-child {
+  grid-column: 1;
+}
+
+.database-panel .schema-field {
+  grid-column: 2;
+  min-width: 140px;
+}
+
+.database-panel .hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.database-panel input {
+  font-size: 16px;
+  padding: 10px 12px;
 }
 
 .ini-extra {
@@ -461,13 +482,15 @@ tr.right_only {
   .summary,
   .ini-line,
   .field-grid,
-  .shared-creds {
+  .database-panel {
     grid-template-columns: 1fr;
     display: grid;
   }
 
-  .hero {
-    align-items: start;
+  .database-panel > label:first-child,
+  .database-panel .schema-field,
+  .database-panel .hint {
+    grid-column: 1;
   }
 
   .summary {

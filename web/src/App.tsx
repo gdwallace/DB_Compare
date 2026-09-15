@@ -212,11 +212,42 @@ export default function App() {
           <button type="button" className="ghost" onClick={runDemo} disabled={busy}>
             Load sample data
           </button>
-          <button type="button" className="primary" onClick={runCompare} disabled={busy || !leftServer || !rightServer}>
+          <button
+            type="button"
+            className="primary"
+            onClick={runCompare}
+            disabled={busy || !leftServer || !rightServer || !database.trim()}
+          >
             {busy ? "Comparing…" : "Compare servers"}
           </button>
         </div>
       </header>
+
+      <section className="database-panel">
+        <label htmlFor="database-name">
+          Database name
+          <input
+            id="database-name"
+            value={database}
+            onChange={(event) => setDatabase(event.target.value)}
+            placeholder="Enter the database to query"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </label>
+        <p className="hint">
+          Both servers run{" "}
+          <code>
+            SELECT SECTION, NAME, INIVALUE, DESCRIPTION, EXPOSED, DATATYPE, DATAFORMAT FROM{" "}
+            {database.trim() ? `${database.trim()}.` : ""}
+            {schemaName || "dbo"}.TBLINISETTINGS
+          </code>
+        </p>
+        <label className="schema-field" htmlFor="schema-name">
+          Schema
+          <input id="schema-name" value={schemaName} onChange={(event) => setSchemaName(event.target.value)} />
+        </label>
+      </section>
 
       <div className="panels">
         <ServerPicker
@@ -226,6 +257,7 @@ export default function App() {
           onChange={setLeftServer}
           onTest={() => testSide("left")}
           testing={testing === "left"}
+          canTest={Boolean(database.trim())}
           message={leftMsg}
           error={leftErr}
         />
@@ -236,21 +268,12 @@ export default function App() {
           onChange={setRightServer}
           onTest={() => testSide("right")}
           testing={testing === "right"}
+          canTest={Boolean(database.trim())}
           message={rightMsg}
           error={rightErr}
         />
       </div>
 
-      <section className="shared-creds">
-        <label>
-          Database
-          <input value={database} onChange={(event) => setDatabase(event.target.value)} placeholder="Database name" />
-        </label>
-        <label>
-          Schema
-          <input value={schemaName} onChange={(event) => setSchemaName(event.target.value)} />
-        </label>
-      </section>
       <p className="hint">
         Trimble Maps servers use AppianAppUser2025. Staging servers use AppianAppStageUser2025. Passwords stay in{" "}
         <code>.env</code>, not in the browser.

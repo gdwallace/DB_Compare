@@ -119,6 +119,18 @@ def test_inspect_missing_table():
     assert "not found" in response.json()["detail"].lower()
 
 
+def test_compare_requires_database_name():
+    response = client.post(
+        "/api/compare",
+        json={
+            "left_server": "sql-butterfly.appian.trimblemaps.com",
+            "right_server": "sql01.staging.appiantesting.com",
+        },
+    )
+    assert response.status_code == 400
+    assert "database" in response.json()["detail"].lower()
+
+
 def test_compare_rejects_unknown_server_name():
     response = client.post(
         "/api/compare",
